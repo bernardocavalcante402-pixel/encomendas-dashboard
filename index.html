@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Encomendas - Condomínio</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f3f4f6;
+    color: #111827;
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: white;
+    padding: 24px 28px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  }
+  header h1 { font-size: 24px; margin-bottom: 4px; }
+  header p { opacity: 0.9; font-size: 14px; }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-left: 4px solid #4f46e5;
+  }
+  .card.warning { border-left-color: #f59e0b; }
+  .card.success { border-left-color: #10b981; }
+  .card.danger { border-left-color: #ef4444; }
+  .card .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .card .value { font-size: 32px; font-weight: 700; color: #111827; }
+  .card .sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
+
+  .section {
+    background: white;
+    padding: 24px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+  .section h2 { font-size: 18px; margin-bottom: 16px; color: #111827; }
+
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filters input, .filters select {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .filters input:focus, .filters select:focus { outline: 2px solid #4f46e5; outline-offset: -1px; }
+  .btn {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .btn:hover { background: #4338ca; }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .btn.success { background: #10b981; }
+  .btn.success:hover { background: #059669; }
+  .btn.ghost { background: #e5e7eb; color: #374151; }
+  .btn.ghost:hover { background: #d1d5db; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e5e7eb; }
+  th { font-weight: 600; color: #374151; background: #f9fafb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  tr:hover { background: #f9fafb; }
+  .status { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+  .status.recebida { background: #dbeafe; color: #1e40af; }
+  .status.pendente_48h { background: #fef3c7; color: #92400e; }
+  .status.retirada { background: #d1fae5; color: #065f46; }
+  .foto-link { color: #4f46e5; text-decoration: none; font-size: 12px; }
+  .foto-link:hover { text-decoration: underline; }
+
+  #chart { width: 100%; height: 200px; margin-top: 12px; }
+  .bar { fill: #4f46e5; }
+  .bar:hover { fill: #7c3aed; }
+  .analise {
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .analise.ok { background: #d1fae5; color: #065f46; border-left: 4px solid #10b981; }
+  .analise.atencao { background: #fef3c7; color: #92400e; border-left: 4px solid #f59e0b; }
+  .analise.alerta { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+
+  .loading, .empty, .error {
+    padding: 40px;
+    text-align: center;
+    color: #6b7280;
+  }
+  .error { color: #991b1b; background: #fee2e2; border-radius: 8px; }
+
+  @media (max-width: 640px) {
+    body { padding: 10px; }
+    table { font-size: 12px; }
+    th, td { padding: 8px 4px; }
+    .filters { flex-direction: column; }
+    .filters input, .filters select { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>📦 Dashboard de Encomendas</h1>
+    <p>Relatório mensal e controle de retiradas · Condomínio Mônaco</p>
+  </header>
+
+  <div class="cards" id="cards">
+    <div class="card"><div class="label">Total</div><div class="value">—</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Volume diário (últimos 30 dias)</h2>
+    <svg id="chart" viewBox="0 0 800 200" preserveAspectRatio="none"></svg>
+    <div id="analise"></div>
+  </div>
+
+  <div class="section">
+    <h2>Encomendas</h2>
+    <div class="filters">
+      <input type="text" id="busca" placeholder="Buscar por morador, apto, protocolo...">
+      <select id="filtroStatus">
+        <option value="">Todos os status</option>
+        <option value="recebida">Recebida</option>
+        <option value="pendente_48h">Pendente +48h</option>
+        <option value="retirada">Retirada</option>
+      </select>
+      <select id="filtroMes">
+        <option value="">Todos os meses</option>
+      </select>
+      <button class="btn ghost" onclick="carregar()">🔄 Recarregar</button>
+      <button class="btn ghost" onclick="exportarCSV()">⬇️ Exportar CSV</button>
+    </div>
+    <div id="tabela"><div class="loading">Carregando encomendas…</div></div>
+  </div>
+</div>
+
+<script>
+// ======== CONFIGURAÇÃO ========
+const SHEET_ID = '15ZbjUMqjTp0accU2YDzLUws-jgI3g4HkzXb1pu-qQBs';
+const GID = '2100034000';
+const WEBHOOK_RETIRADA = 'https://1automacao-politico-n8n.bykpqs.easypanel.host/webhook/encomenda-retirada';
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+// =============================
+
+let encomendas = [];
+
+// Parser de CSV simples (aguenta aspas e vírgulas dentro de campo)
+function parseCSV(texto) {
+  const linhas = [];
+  let linha = [];
+  let campo = '';
+  let dentroAspas = false;
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i];
+    if (c === '"') {
+      if (dentroAspas && texto[i+1] === '"') { campo += '"'; i++; }
+      else dentroAspas = !dentroAspas;
+    } else if (c === ',' && !dentroAspas) {
+      linha.push(campo); campo = '';
+    } else if ((c === '\n' || c === '\r') && !dentroAspas) {
+      if (campo !== '' || linha.length > 0) { linha.push(campo); linhas.push(linha); }
+      linha = []; campo = '';
+      if (c === '\r' && texto[i+1] === '\n') i++;
+    } else {
+      campo += c;
+    }
+  }
+  if (campo !== '' || linha.length > 0) { linha.push(campo); linhas.push(linha); }
+  if (linhas.length === 0) return [];
+  const headers = linhas[0].map(h => h.trim());
+  return linhas.slice(1).filter(l => l.some(c => c !== '')).map(l => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (l[i] || '').trim());
+    return obj;
+  });
+}
+
+async function carregar() {
+  document.getElementById('tabela').innerHTML = '<div class="loading">Carregando encomendas…</div>';
+  try {
+    const resp = await fetch(CSV_URL + '&cachebust=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const texto = await resp.text();
+    encomendas = parseCSV(texto);
+    atualizarCards();
+    desenharGrafico();
+    preencherFiltroMeses();
+    desenharTabela();
+  } catch (e) {
+    document.getElementById('tabela').innerHTML = `<div class="error">Erro ao carregar: ${e.message}<br><br>A aba <strong>Encomendas</strong> da planilha está publicada como CSV?<br>Arquivo → Compartilhar → Publicar na web → aba Encomendas → formato CSV → Publicar.</div>`;
+  }
+}
+
+function atualizarCards() {
+  const total = encomendas.length;
+  const recebidas = encomendas.filter(e => e.status === 'recebida').length;
+  const pendentes = encomendas.filter(e => e.status === 'pendente_48h').length;
+  const retiradas = encomendas.filter(e => e.status === 'retirada').length;
+
+  // Tempo médio de retirada (só as que foram retiradas)
+  let tempoMedio = '—';
+  const comRetirada = encomendas.filter(e => e.status === 'retirada' && e.data_recebimento && e.data_retirada);
+  if (comRetirada.length) {
+    const somaH = comRetirada.reduce((s, e) => {
+      const rec = new Date(e.data_recebimento);
+      const ret = new Date(e.data_retirada);
+      return s + (ret - rec) / (1000 * 60 * 60);
+    }, 0);
+    const mediaH = somaH / comRetirada.length;
+    tempoMedio = mediaH < 24 ? `${mediaH.toFixed(1)}h` : `${(mediaH/24).toFixed(1)}d`;
+  }
+
+  document.getElementById('cards').innerHTML = `
+    <div class="card"><div class="label">Total</div><div class="value">${total}</div><div class="sub">encomendas registradas</div></div>
+    <div class="card success"><div class="label">Retiradas</div><div class="value">${retiradas}</div><div class="sub">${total ? Math.round(retiradas/total*100) : 0}% do total</div></div>
+    <div class="card"><div class="label">Aguardando</div><div class="value">${recebidas}</div><div class="sub">recebidas em até 48h</div></div>
+    <div class="card ${pendentes ? 'danger' : 'warning'}"><div class="label">Pendentes +48h</div><div class="value">${pendentes}</div><div class="sub">${pendentes ? 'atenção' : 'nenhuma'}</div></div>
+    <div class="card"><div class="label">Tempo médio retirada</div><div class="value">${tempoMedio}</div><div class="sub">do recebimento à retirada</div></div>
+  `;
+}
+
+function desenharGrafico() {
+  // Conta encomendas por dia nos últimos 30 dias
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const dias = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(hoje); d.setDate(d.getDate() - i);
+    dias.push({ data: d, count: 0, label: d.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) });
+  }
+  encomendas.forEach(e => {
+    if (!e.data_recebimento) return;
+    const d = new Date(e.data_recebimento); d.setHours(0,0,0,0);
+    const dia = dias.find(x => x.data.getTime() === d.getTime());
+    if (dia) dia.count++;
+  });
+
+  const max = Math.max(1, ...dias.map(d => d.count));
+  const larguraBarra = 800 / dias.length;
+  const alturaMax = 170;
+
+  let svg = '';
+  dias.forEach((d, i) => {
+    const h = (d.count / max) * alturaMax;
+    const x = i * larguraBarra;
+    const y = alturaMax - h + 10;
+    svg += `<rect class="bar" x="${x+1}" y="${y}" width="${larguraBarra-2}" height="${h}"><title>${d.label}: ${d.count}</title></rect>`;
+    if (i % 5 === 0) {
+      svg += `<text x="${x + larguraBarra/2}" y="195" font-size="10" fill="#6b7280" text-anchor="middle">${d.label}</text>`;
+    }
+  });
+  document.getElementById('chart').innerHTML = svg;
+
+  // Análise de demanda
+  const total30d = dias.reduce((s, d) => s + d.count, 0);
+  const media = total30d / 30;
+  const ultimos7 = dias.slice(-7).reduce((s, d) => s + d.count, 0) / 7;
+  const anteriores7 = dias.slice(-14, -7).reduce((s, d) => s + d.count, 0) / 7;
+
+  let classe = 'ok';
+  let texto = '';
+  if (total30d === 0) {
+    classe = 'ok';
+    texto = '<strong>Sem dados suficientes.</strong> Registre algumas encomendas para gerar análises de demanda.';
+  } else if (media < 3) {
+    classe = 'ok';
+    texto = `<strong>Demanda baixa.</strong> Média de ${media.toFixed(1)} encomendas/dia nos últimos 30 dias. Um porteiro atendendo encomendas é suficiente.`;
+  } else if (media < 8) {
+    classe = 'ok';
+    texto = `<strong>Demanda normal.</strong> Média de ${media.toFixed(1)} encomendas/dia. A equipe atual dá conta do volume.`;
+  } else if (media < 15) {
+    classe = 'atencao';
+    texto = `<strong>Demanda alta.</strong> Média de ${media.toFixed(1)} encomendas/dia. Avalie se o porteiro consegue atender moradores e ainda processar as encomendas sem atraso.`;
+  } else {
+    classe = 'alerta';
+    texto = `<strong>Demanda muito alta.</strong> Média de ${media.toFixed(1)} encomendas/dia — considere reforço de pessoal em horários de pico ou um auxiliar dedicado a encomendas.`;
+  }
+
+  if (ultimos7 > anteriores7 * 1.5 && ultimos7 > 3) {
+    texto += ` Os últimos 7 dias tiveram <strong>${(((ultimos7/anteriores7)-1)*100).toFixed(0)}% a mais</strong> de encomendas que a semana anterior — tendência de alta.`;
+  } else if (ultimos7 < anteriores7 * 0.6 && anteriores7 > 3) {
+    texto += ` Os últimos 7 dias tiveram queda em relação à semana anterior.`;
+  }
+
+  document.getElementById('analise').innerHTML = `<div class="analise ${classe}">${texto}</div>`;
+}
+
+function preencherFiltroMeses() {
+  const meses = new Set();
+  encomendas.forEach(e => {
+    if (!e.data_recebimento) return;
+    const d = new Date(e.data_recebimento);
+    if (isNaN(d.getTime())) return;
+    meses.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  });
+  const sel = document.getElementById('filtroMes');
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todos os meses</option>';
+  [...meses].sort().reverse().forEach(m => {
+    const [ano, mes] = m.split('-');
+    const nome = new Date(ano, mes-1, 1).toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'});
+    sel.innerHTML += `<option value="${m}">${nome}</option>`;
+  });
+  sel.value = atual;
+}
+
+function filtrar() {
+  const busca = document.getElementById('busca').value.toLowerCase();
+  const status = document.getElementById('filtroStatus').value;
+  const mes = document.getElementById('filtroMes').value;
+
+  return encomendas.filter(e => {
+    if (status && e.status !== status) return false;
+    if (mes && e.data_recebimento) {
+      const d = new Date(e.data_recebimento);
+      const m = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if (m !== mes) return false;
+    }
+    if (busca) {
+      const texto = `${e.id} ${e.morador} ${e.bloco} ${e.apartamento} ${e.remetente}`.toLowerCase();
+      if (!texto.includes(busca)) return false;
+    }
+    return true;
+  });
+}
+
+function desenharTabela() {
+  const filtradas = filtrar();
+  if (!filtradas.length) {
+    document.getElementById('tabela').innerHTML = '<div class="empty">Nenhuma encomenda encontrada com os filtros atuais.</div>';
+    return;
+  }
+
+  // Ordena: mais recentes primeiro
+  filtradas.sort((a, b) => new Date(b.data_recebimento || 0) - new Date(a.data_recebimento || 0));
+
+  const formatData = s => {
+    if (!s) return '—';
+    try {
+      const d = new Date(s);
+      return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch { return s; }
+  };
+
+  let html = `<div style="overflow-x: auto;"><table>
+    <thead><tr>
+      <th>Protocolo</th><th>Apto</th><th>Morador</th><th>Remetente</th>
+      <th>Recebida</th><th>Retirada</th><th>Status</th><th>Foto</th><th>Ação</th>
+    </tr></thead><tbody>`;
+
+  filtradas.forEach(e => {
+    const podeMarcar = e.status === 'recebida' || e.status === 'pendente_48h';
+    html += `<tr>
+      <td style="font-family: monospace; font-size: 12px;">${e.id || '—'}</td>
+      <td>${e.bloco || ''}${e.apartamento || ''}</td>
+      <td>${e.morador || '—'}</td>
+      <td>${e.remetente || '—'}</td>
+      <td>${formatData(e.data_recebimento)}</td>
+      <td>${formatData(e.data_retirada)}</td>
+      <td><span class="status ${e.status || 'recebida'}">${(e.status || '').replace('_', ' ') || '—'}</span></td>
+      <td>${e.foto_url ? `<a href="${e.foto_url}" target="_blank" class="foto-link">ver foto</a>` : '—'}</td>
+      <td>${podeMarcar ? `<button class="btn success sm" onclick="marcarRetirada('${e.id}')">✓ Retirar</button>` : ''}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('tabela').innerHTML = html;
+}
+
+async function marcarRetirada(id) {
+  if (!confirm(`Confirmar retirada da encomenda ${id}?\n\nO morador receberá um WhatsApp de confirmação.`)) return;
+  try {
+    const resp = await fetch(WEBHOOK_RETIRADA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    alert(`✓ Retirada registrada!\n\nAguarde alguns segundos e clique em Recarregar para ver o status atualizado.`);
+    setTimeout(() => carregar(), 2000);
+  } catch (e) {
+    alert(`Erro ao marcar retirada: ${e.message}\n\nO fluxo de Retirada no n8n está ativado?`);
+  }
+}
+
+function exportarCSV() {
+  const filtradas = filtrar();
+  if (!filtradas.length) { alert('Nada para exportar.'); return; }
+  const headers = ['id','bloco','apartamento','morador','telefone','email','remetente','transportadora','codigo_rastreio','data_recebimento','data_retirada','status','foto_url'];
+  const linhas = [headers.join(',')];
+  filtradas.forEach(e => {
+    linhas.push(headers.map(h => `"${(e[h] || '').replace(/"/g, '""')}"`).join(','));
+  });
+  const blob = new Blob([linhas.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `encomendas_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Event listeners
+document.getElementById('busca').addEventListener('input', desenharTabela);
+document.getElementById('filtroStatus').addEventListener('change', desenharTabela);
+document.getElementById('filtroMes').addEventListener('change', desenharTabela);
+
+// Inicial
+carregar();
+
+// Auto-refresh a cada 2 minutos
+setInterval(carregar, 120000);
+</script>
+
+</body>
+</html>
